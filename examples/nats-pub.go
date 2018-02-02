@@ -6,7 +6,9 @@ package main
 import (
 	"flag"
 	"log"
-
+	"time"
+	"fmt"
+	"os"
 	"github.com/nats-io/go-nats"
 )
 
@@ -22,25 +24,40 @@ func main() {
 	flag.Usage = usage
 	flag.Parse()
 
-	args := flag.Args()
-	if len(args) < 2 {
-		usage()
-	}
-
 	nc, err := nats.Connect(*urls)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer nc.Close()
 
-	subj, msg := args[0], []byte(args[1])
-
-	nc.Publish(subj, msg)
-	nc.Flush()
+	subj := os.Args[1]
+	set := os.Args[2]
+	beginTime := time.Now()
+	printOutStamp := beginTime
+	beginTimeFormatted:=beginTime.Format("2006-01-02 15:04:05")
+	var count float64 = 1
+	for{
+		msg := fmt.Sprintf("%s %s %v %s %v %s speed = %v",
+			beginTimeFormatted,
+				set,
+			time.Now().Format("2006-01-02 15:04:05"),
+				set,
+			count,
+				set,
+			count/(time.Since(beginTime).Seconds()))
+		err = nc.Publish(subj, []byte(msg))
+		nc.Flush()
+		if err != nil {
+			log.Fatalf("Error during publish: %v\n", err)
+		}
+		if time.Since(printOutStamp).Seconds() >= 10{
+			log.Printf("Published [%s] : '%s'\n", subj, msg)
+			printOutStamp=time.Now()
+		}
+		count++
+	}
 
 	if err := nc.LastError(); err != nil {
 		log.Fatal(err)
-	} else {
-		log.Printf("Published [%s] : '%s'\n", subj, msg)
 	}
 }
