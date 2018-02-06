@@ -12,6 +12,7 @@ import (
 	"net"
 	//"bufio"
 	"github.com/nats-io/go-nats"
+	"strings"
 )
 
 // NOTE: Use tls scheme for TLS, e.g. nats-pub -s tls://demo.nats.io:4443 foo hello
@@ -58,16 +59,18 @@ func main() {
 		//	count/(time.Since(beginTime).Seconds()))
 		go readFrDispatcher(conn, done)
 		msg := <-done
+		count = count+float64(strings.Count(string(msg),"$POS"))
 		err = nc.Publish(subj, msg)
 		nc.Flush()
 		if err != nil {
 			log.Fatalf("Error during publish: %v\n", err)
 		}
 		if time.Since(printOutStamp).Seconds() >= 10{
-			log.Printf("Published [%s] : '%s'\n", subj, msg)
+			log.Printf("Speed is: %v", count/time.Since(beginTime).Seconds())
+			//log.Printf("Published [%s] : '%s'\n", subj, msg)
 			printOutStamp=time.Now()
 		}
-		count++
+		//count++
 	}
 
 	if err := nc.LastError(); err != nil {
