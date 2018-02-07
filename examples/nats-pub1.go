@@ -48,7 +48,7 @@ func main() {
 	}
 	tcpConn.Write([]byte("$SUB_ALL"))
 	readFrDisDone := make(chan []byte)
-	readFrNats := make(chan []byte)
+	//readFrNats := make(chan []byte)
 	//for{
 	//
 	//	go readFrDispatcher(tcpConn, readFrDisDone)
@@ -65,7 +65,7 @@ func main() {
 	//	count++
 	//}
 	go readFrDispatcher(tcpConn, readFrDisDone)
-	go subFromNATS(natsConn, readFrNats)
+	go subFromNATS(natsConn, tcpConn)
 	for{
 		msg:=<-readFrDisDone
 		count = count+float64(strings.Count(string(msg),"$POS"))
@@ -109,17 +109,20 @@ func main() {
 func readFrDispatcher(conn net.Conn, rfDisDone chan []byte){
 	for{
 		buf := make([]byte, 1024)
-		reqLen, _ := conn.Read(buf)
-		rfDisDone<-buf[:reqLen-1]
-		buf = nil
+		reqLen, err := conn.Read(buf)
+		if reqLen > 1 && err==nil{
+			rfDisDone<-buf[:reqLen-1]
+			buf = nil
+		}
 	}
 }
 
 // 从消息服务器订阅消息，这个消息被作为指令发送给dispather，用以控制dispatcher的行为。
-func subFromNATS(natsCn *nats.Conn, readFrNats chan []byte){
+func subFromNATS(natsCn *nats.Conn, conn net.Conn){
 		natsCn.Subscribe("goo", func(msg *nats.Msg) {
 			// todo: 向dispatcher发起连接，并发送指令，需要取得与dispatcher连接的conn，tcpConn.Write([]byte("$SUB_ALL"))
 			log.Printf("######################## %s\n", string(msg.Data))
+			conn.Write(msg.Data)
 		})
 }
 
